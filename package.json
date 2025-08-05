@@ -1,1 +1,22 @@
-
+{
+  "name": "fenton-weather-card",
+  "version": "1.0.0",
+  "description": "A compact home assistant weather card including animated icons, gradient backgrounds, wind values.",
+  "main": "rollup.config.js",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "lit": "^3.3.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "rollup": "^2.79.2",
+    "rollup-plugin-terser": "^7.0.2"
+  }
+}
