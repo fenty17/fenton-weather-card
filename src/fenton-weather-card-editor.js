@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 
-class MyWeatherCardEditor extends LitElement {
+class FentonWeatherCardEditor extends LitElement {
   static get properties() {
     return {
       hass:   Object,
@@ -48,4 +48,4 @@ class MyWeatherCardEditor extends LitElement {
   }
 }
 
-customElements.define('fenton-weather-card-editor', MyWeatherCardEditor);
+customElements.define('fenton-weather-card-editor', FentonWeatherCardEditor);
