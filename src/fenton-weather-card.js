@@ -16,7 +16,7 @@ const G_NIGHT   = 'linear-gradient(0deg, #122447, black)';
 const G_CLOUDY  = 'linear-gradient(0deg, #2e4063, #505f7d)';
 // you can extend: rain, snow…
 
-class MyWeatherCard extends LitElement {
+class FentonWeatherCard extends LitElement {
   static get properties() {
     return {
       hass:    Object,
@@ -113,4 +113,4 @@ class MyWeatherCard extends LitElement {
   }
 }
 
-customElements.define('fenton-weather-card', MyWeatherCard);
+customElements.define('fenton-weather-card', FentonWeatherCard);
