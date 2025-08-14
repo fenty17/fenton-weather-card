@@ -1,12 +1,11 @@
 import { LitElement, html, css } from 'lit';
 import './fenton-weather-card-editor.js';
 
-// (This registration makes it show up in the add-card picker.)
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'fenton-weather-card',
   name: 'Fenton Weather Card',
-  description: 'A compact weather card with wind, gradient, and warning alert.',
+  description: 'Compact weather card with wind, gradient, and alert',
 });
 
 const G_DAY     = 'linear-gradient(0deg, #0448c7, #4886fa)';
@@ -29,7 +28,7 @@ class FentonWeatherCard extends LitElement {
         overflow: hidden;
       }
       .card {
-        padding: 16px;
+        padding: 6px 14px;
         color: white;
         position: relative;
         background: var(--weather-bg);
@@ -39,6 +38,7 @@ class FentonWeatherCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        margin-bottom: 4px;
       }
       .icon {
         width: 100px;
@@ -52,17 +52,20 @@ class FentonWeatherCard extends LitElement {
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
-        margin-right: 24px;
+        margin-right: 20px;
       }
       .temp {
-        font-size: 2.6rem;
-        font-weight: bold;
-        line-height: 1.1;
+        font-size: 2.1rem;
+        font-weight: 400;
+        line-height: 1.08;
+        margin-bottom: 3px;
       }
       .condition {
-        font-size: 1.1rem;
-        opacity: 0.85;
+        font-size: 1.4rem;
+        font-weight: 700;
+        opacity: 0.91;
         text-transform: capitalize;
+        line-height: 1.18;
       }
       .side-info {
         display: flex;
@@ -70,23 +73,47 @@ class FentonWeatherCard extends LitElement {
         align-items: flex-end;
         gap: 8px;
         margin-left: auto;
-        min-width: 60px;
+        min-width: 65px;
       }
       .side-value {
-        font-size: 1.2rem;
-      }
-      .row {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 10px;
-        font-size: 1.1rem;
+        font-size: 1.10rem;
+        line-height: 1.22;
       }
       .warn {
         position: absolute;
-        top: 8px; right: 8px;
+        top: 6px; right: 7px;
         color: #ff3d3d;
-        font-size: 30px;
+        font-size: 28px;
         filter: drop-shadow(0 0 3px #000);
+      }
+      .bottom-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 0.4em;
+        margin-bottom: 0.2em;
+      }
+      .bottom-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex: 1 1 0px;
+        min-width: 0;
+        font-size: 1.09rem;
+        justify-content: center;
+      }
+      ha-icon {
+        --mdc-icon-size: 25px;
+        height: 25px;
+        width: 25px !important;
+        color: white;
+      }
+      @media(max-width: 420px) {
+        .icon { width: 65px; height: 65px; }
+        .temp { font-size: 1.3rem; }
+        .condition { font-size: 1.0rem; }
+        .side-value { font-size: 0.95rem; }
+        ha-icon { --mdc-icon-size: 20px; height: 20px; }
       }
     `;
   }
@@ -100,12 +127,13 @@ class FentonWeatherCard extends LitElement {
     this.config = config;
   }
 
-  getCardSize() { return 3; }
+  getCardSize() { return 2; }
 
-  format(val) {
+  format(val, decimals=1) {
     const num = Number(val);
     if (isNaN(num)) return val;
-    return Math.round(num * 10) / 10;
+    // Clamp: don't style - unknown or unavailable
+    return num.toFixed(decimals);
   }
 
   render() {
@@ -119,17 +147,23 @@ class FentonWeatherCard extends LitElement {
     else if (this.hass.states['sun.sun']?.state === 'below_horizon') bg = G_NIGHT;
     this.style.setProperty('--weather-bg', bg);
 
-    // values
     const feels   = this.format(this._get(this.config.feels_like_entity));
-    const precip  = this.format(this._get(this.config.precipitation_entity));
+    const precip  = this.format(this._get(this.config.precipitation_entity), 2);
     const wind    = this.format(this._get(this.config.wind_speed_entity));
     const gust    = this.format(this._get(this.config.wind_gust_entity));
     const warnSt  = this.hass.states[this.config.warning_entity]?.state;
     const warn    = warnSt === 'on' || warnSt === 'warning';
     const tempVal = this.format(w.attributes.temperature);
-    const tempUnit = "°"; // Always report °
+    const tempUnit = "°";
     const precipUnit = w.attributes.precipitation_unit || '';
-    const windUnit = w.attributes.wind_speed_unit || '';
+    // wind mph always
+    const windUnit = "mph";
+
+    // Bottom row: Sunrise/Sunset/Wind
+    const sunEnt = this.hass.states['sun.sun'];
+    const sunrise = sunEnt ? this._localTime(sunEnt.attributes.next_rising) : '--';
+    const sunset = sunEnt ? this._localTime(sunEnt.attributes.next_setting) : '--';
+    const windDisplay = `${wind}-${gust} ${windUnit}`;
 
     return html`
       <div class="card">
@@ -147,15 +181,35 @@ class FentonWeatherCard extends LitElement {
             <div class="side-value">${precip}${precipUnit}</div>
           </div>
         </div>
-        <div class="row">
-          <div>
-            ${wind}/${gust} ${windUnit}
+        <div class="bottom-row">
+          <div class="bottom-item">
+            <ha-icon icon="mdi:weather-sunset-up"></ha-icon>
+            <span>${sunrise}</span>
+          </div>
+          <div class="bottom-item">
+            <ha-icon icon="mdi:weather-sunset-down"></ha-icon>
+            <span>${sunset}</span>
+          </div>
+          <div class="bottom-item">
+            <ha-icon icon="mdi:weather-windy"></ha-icon>
+            <span>${windDisplay}</span>
           </div>
         </div>
       </div>
     `;
   }
 
-  _get(id) { const s = this.hass.states?.[id]; return s ? s.state : '—'; }
+  _get(id) {
+    const s = this.hass.states?.[id];
+    return s ? s.state : '—';
+  }
+
+  _localTime(isoStr) {
+    if (!isoStr) return '--';
+    const date = new Date(isoStr);
+    if (isNaN(date.getTime())) return '--';
+    // Format as e.g. 7:48 AM, omit seconds
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
 }
 customElements.define('fenton-weather-card', FentonWeatherCard);
