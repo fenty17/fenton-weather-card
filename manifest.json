@@ -1,7 +1,7 @@
 {
   "domain": "fenton-weather-card",
   "name": "Fenton Weather Card",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "documentation": "https://github.com/fenty17/fenton-weather-card",
   "dependencies": [],
   "codeowners": ["@fenty17"],
