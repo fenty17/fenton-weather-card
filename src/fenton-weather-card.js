@@ -38,6 +38,8 @@ class FentonWeatherCard extends LitElement {
         display: flex;
         align-items: flex-start;
         margin-bottom: 2px;
+        width: 100%;
+        gap: 0px;
       }
       .icon {
         width: 100px;
@@ -67,6 +69,27 @@ class FentonWeatherCard extends LitElement {
         text-transform: capitalize;
         line-height: 1.14;
       }
+
+      .icon-main-warning-wrap {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 10px;
+        min-width: 120px;
+        position: relative;
+      }
+
+      .warn-triangle {
+        color: #ff4343;
+        font-size: 42px;
+        margin-top: 3px;
+        margin-left: 1px;
+        filter: drop-shadow(0 0 2px #000);
+        z-index: 2;
+        cursor: pointer;
+        flex-shrink: 0;
+        /* No longer positioned absolute */
+      }
       .side-info {
         display: flex;
         flex-direction: column;
@@ -91,16 +114,6 @@ class FentonWeatherCard extends LitElement {
         color: #8ecae6;
         vertical-align: bottom;
       }
-      .warn-triangle {
-        color: #ff4343;
-        font-size: 30px;
-        position: absolute;
-        top: 7px;
-        right: 8px;
-        filter: drop-shadow(0 0 2px #000);
-        z-index: 2;
-        cursor: pointer;
-      }
       .bottom-section {
         margin-top: 0.2em;
       }
@@ -110,7 +123,7 @@ class FentonWeatherCard extends LitElement {
         align-items: flex-end;
         width: 100%;
         margin-top: 5px;
-        gap: 35px;
+        gap: 60px; /* wider horizontal spacing between sensors */
       }
       .bottom-col {
         display: flex;
@@ -162,12 +175,15 @@ class FentonWeatherCard extends LitElement {
         .bottom-label, .bottom-value { font-size: 0.76rem; }
         .bottom-col .bottom-labelval { max-width: 56vw; }
         .bottom-iconwrap ha-icon { --mdc-icon-size: 17px; height: 17px; }
+        .warn-triangle { font-size: 27px; }
+        .card-top { gap: 0px; }
+        .bottom-row { gap: 22px; }
+        .icon-main-warning-wrap { min-width: 76px; }
       }
     `;
   }
 
   setConfig(config) {
-    // Supply default for static_icons
     this.config = {
       static_icons: false,
       ...config
@@ -176,7 +192,6 @@ class FentonWeatherCard extends LitElement {
     const req = [
       'weather_entity', 'feels_like_entity', 'precipitation_entity',
       'wind_speed_entity', 'wind_gust_entity'
-      // warning_sensor and wind_direction_entity are now optional
     ];
     for (const k of req) if (!this.config[k]) throw new Error(`Missing required: ${k}`);
   }
@@ -214,6 +229,25 @@ class FentonWeatherCard extends LitElement {
     return Math.round(num);
   }
 
+  _get(id) {
+    const s = this.hass.states?.[id];
+    return s ? s.state : '—';
+  }
+
+  // Degrees to compass point (8 or 16-point, here we'll use 16)
+  degToCompass(deg) {
+    if (deg === null || deg === undefined || deg === "") return "";
+    let val = Number(deg);
+    if (isNaN(val)) return deg;
+    const dirs = [
+      "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+      "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+    ];
+    val = ((val % 360) + 360) % 360; // ensure 0..359
+    const idx = Math.round(val / 22.5) % 16;
+    return dirs[idx];
+  }
+
   render() {
     if (!this.hass || !this.config) return html``;
     const w = this.hass.states[this.config.weather_entity];
@@ -238,10 +272,11 @@ class FentonWeatherCard extends LitElement {
     const tempUnit = "°";
     const precipUnit = w.attributes.precipitation_unit || '';
     const windUnit = "mph";
-    const windDir = this.config.wind_direction_entity
-      ? this._get(this.config.wind_direction_entity)
-      : "";
-
+    let windDirDisplay = "";
+    if (this.config.wind_direction_entity) {
+      const dirVal = this._get(this.config.wind_direction_entity);
+      windDirDisplay = this.degToCompass(dirVal);
+    }
     // Bottom row
     const sunEnt = this.hass.states['sun.sun'];
     const sunrise = sunEnt ? this._localTime(sunEnt.attributes.next_rising) : '--';
@@ -249,23 +284,25 @@ class FentonWeatherCard extends LitElement {
 
     return html`
       <div class="card">
-        ${this.config.warning_sensor && this.hasShetlandWarning() ? html`
-          <ha-icon
-            class="warn-triangle"
-            icon="mdi:alert"
-            @click="${() => this._onWarningClick()}"
-            title="Weather warning for Shetland"
-            tabindex="0"
-            style="cursor:pointer;">
-          </ha-icon>
-        ` : ""}
         <div class="card-top">
-          <img class="icon"
-            src="/local/weather_icons/${iconDir}/${w.state}.svg"
-            alt="${w.state}">
-          <div class="main-info">
-            <div class="temp">${tempVal}${tempUnit}</div>
-            <div class="condition">${w.state}</div>
+          <div class="icon-main-warning-wrap">
+            <img class="icon"
+              src="/local/weather_icons/${iconDir}/${w.state}.svg"
+              alt="${w.state}">
+            ${this.config.warning_sensor && this.hasShetlandWarning() ? html`
+              <ha-icon
+                class="warn-triangle"
+                icon="mdi:alert"
+                @click="${() => this._onWarningClick()}"
+                title="Weather warning for Shetland"
+                tabindex="0"
+                style="cursor:pointer;">
+              </ha-icon>
+            ` : ""}
+            <div class="main-info">
+              <div class="temp">${tempVal}${tempUnit}</div>
+              <div class="condition">${w.state}</div>
+            </div>
           </div>
           <div class="side-info">
             <div class="side-value">${feels}${tempUnit}</div>
@@ -304,7 +341,7 @@ class FentonWeatherCard extends LitElement {
               </span>
               <span class="bottom-labelval">
                 <span class="bottom-label"
-                  >Wind Speed${windDir ? ` – ${windDir}` : ""}</span>
+                  >Wind${windDirDisplay ? ` (${windDirDisplay})` : ""}</span>
                 <span class="bottom-value"
                   >${wind}-${gust} ${windUnit}</span>
               </span>
@@ -313,11 +350,6 @@ class FentonWeatherCard extends LitElement {
         </div>
       </div>
     `;
-  }
-
-  _get(id) {
-    const s = this.hass.states?.[id];
-    return s ? s.state : '—';
   }
 
   _localTime(isoStr) {
