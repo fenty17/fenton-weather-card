@@ -5,7 +5,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'fenton-weather-card',
   name: 'Fenton Weather Card',
-  description: 'Compact weather card with wind, gradient, alerts, icons',
+  description: 'Customizable compact weather card',
 });
 
 const G_DAY     = 'linear-gradient(0deg, #0448c7, #4886fa)';
@@ -91,29 +91,31 @@ class FentonWeatherCard extends LitElement {
         color: #8ecae6;
         vertical-align: bottom;
       }
-      .warn {
+      .warn-triangle {
+        color: #ff4343;
+        font-size: 30px;
         position: absolute;
-        top: 4px; right: 7px;
-        color: #ff3d3d;
-        font-size: 26px;
-        filter: drop-shadow(0 0 3px #222);
+        top: 7px;
+        right: 8px;
+        filter: drop-shadow(0 0 2px #000);
+        z-index: 2;
+        cursor: pointer;
       }
-
       .bottom-section {
-        margin-top: 0.05em;
+        margin-top: 0.2em;
       }
       .bottom-row {
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
         align-items: flex-end;
         width: 100%;
         margin-top: 5px;
+        gap: 35px;
       }
       .bottom-col {
         display: flex;
         align-items: flex-start;
-        flex: 1 1 0px;
-        min-width: 0;
+        flex: 0 1 auto;
         gap: 5px;
       }
       .bottom-iconwrap {
@@ -165,12 +167,37 @@ class FentonWeatherCard extends LitElement {
   }
 
   setConfig(config) {
+    // Supply default for static_icons
+    this.config = {
+      static_icons: false,
+      ...config
+    };
+
     const req = [
       'weather_entity', 'feels_like_entity', 'precipitation_entity',
-      'wind_speed_entity', 'wind_gust_entity', 'warning_entity'
+      'wind_speed_entity', 'wind_gust_entity'
+      // warning_sensor and wind_direction_entity are now optional
     ];
-    for (const k of req) if (!config[k]) throw new Error(`Missing required: ${k}`);
-    this.config = config;
+    for (const k of req) if (!this.config[k]) throw new Error(`Missing required: ${k}`);
+  }
+
+  // Check for at least one entry in warning_sensor mentioning 'Shetland'
+  hasShetlandWarning() {
+    if (!this.config.warning_sensor) return false;
+    const entity = this.hass.states?.[this.config.warning_sensor];
+    if (!entity) return false;
+    const entries = entity.attributes?.entries;
+    if (!Array.isArray(entries)) return false;
+    return entries.some(
+      e => e && typeof e.summary === 'string' && e.summary.includes('Shetland')
+    );
+  }
+
+  _onWarningClick() {
+    if (this.config.warning_action_path) {
+      history.pushState(null, '', this.config.warning_action_path);
+      window.dispatchEvent(new Event('location-changed'));
+    }
   }
 
   getCardSize() { return 2; }
@@ -192,34 +219,49 @@ class FentonWeatherCard extends LitElement {
     const w = this.hass.states[this.config.weather_entity];
     if (!w) return html`<div class="card">Weather entity not found</div>`;
 
+    // Icon type
+    const iconDir = this.config.static_icons ? 'static' : 'animated';
+
+    // Card background
     let bg = G_DAY;
     const st = w.state.toLowerCase();
     if (st.includes('cloud')) bg = G_CLOUDY;
     else if (this.hass.states['sun.sun']?.state === 'below_horizon') bg = G_NIGHT;
     this.style.setProperty('--weather-bg', bg);
 
+    // Values
     const feels   = this.format(this._get(this.config.feels_like_entity));
     const precip  = this.format(this._get(this.config.precipitation_entity), 2);
     const wind    = this.formatInt(this._get(this.config.wind_speed_entity));
     const gust    = this.formatInt(this._get(this.config.wind_gust_entity));
-    const warnSt  = this.hass.states[this.config.warning_entity]?.state;
-    const warn    = warnSt === 'on' || warnSt === 'warning';
     const tempVal = this.format(w.attributes.temperature);
     const tempUnit = "°";
     const precipUnit = w.attributes.precipitation_unit || '';
     const windUnit = "mph";
+    const windDir = this.config.wind_direction_entity
+      ? this._get(this.config.wind_direction_entity)
+      : "";
 
-    // Bottom row: Sunrise/Sunset/Wind
+    // Bottom row
     const sunEnt = this.hass.states['sun.sun'];
     const sunrise = sunEnt ? this._localTime(sunEnt.attributes.next_rising) : '--';
     const sunset = sunEnt ? this._localTime(sunEnt.attributes.next_setting) : '--';
 
     return html`
       <div class="card">
-        ${warn ? html`<ha-icon class="warn" icon="mdi:alert-circle"></ha-icon>` : ''}
+        ${this.config.warning_sensor && this.hasShetlandWarning() ? html`
+          <ha-icon
+            class="warn-triangle"
+            icon="mdi:alert"
+            @click="${() => this._onWarningClick()}"
+            title="Weather warning for Shetland"
+            tabindex="0"
+            style="cursor:pointer;">
+          </ha-icon>
+        ` : ""}
         <div class="card-top">
           <img class="icon"
-            src="/local/weather_icons/animated/${w.state}.svg"
+            src="/local/weather_icons/${iconDir}/${w.state}.svg"
             alt="${w.state}">
           <div class="main-info">
             <div class="temp">${tempVal}${tempUnit}</div>
@@ -233,7 +275,6 @@ class FentonWeatherCard extends LitElement {
             </div>
           </div>
         </div>
-        <!-- Bottom Row: Three columns with icon | label (above) | value (below) -->
         <div class="bottom-section">
           <div class="bottom-row">
             <!-- Sunrise -->
@@ -262,8 +303,10 @@ class FentonWeatherCard extends LitElement {
                 <ha-icon icon="mdi:weather-windy"></ha-icon>
               </span>
               <span class="bottom-labelval">
-                <span class="bottom-label">Wind Speed</span>
-                <span class="bottom-value">${wind}-${gust} ${windUnit}</span>
+                <span class="bottom-label"
+                  >Wind Speed${windDir ? ` – ${windDir}` : ""}</span>
+                <span class="bottom-value"
+                  >${wind}-${gust} ${windUnit}</span>
               </span>
             </div>
           </div>

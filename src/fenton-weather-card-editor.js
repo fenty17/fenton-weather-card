@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html } from 'lit';
 
 class FentonWeatherCardEditor extends LitElement {
   static get properties() {
@@ -12,7 +12,10 @@ class FentonWeatherCardEditor extends LitElement {
       {name: 'precipitation_entity', selector: {entity: {domain: 'sensor'}}},
       {name: 'wind_speed_entity', selector: {entity: {domain: 'sensor'}}},
       {name: 'wind_gust_entity', selector: {entity: {domain: 'sensor'}}},
-      {name: 'warning_entity', selector: {entity: {domain: 'binary_sensor'}}},
+      {name: 'wind_direction_entity', selector: {entity: {domain: 'sensor'}}},
+      {name: "static_icons", selector: {boolean: {}}},
+      {name: 'warning_sensor', selector: {entity: {}}},
+      {name: 'warning_action_path', selector: {text: {}}},
     ];
   }
   _valueChanged(e) {
@@ -21,7 +24,6 @@ class FentonWeatherCardEditor extends LitElement {
   }
   render() {
     if (!this.hass) return html``;
-    // ha-form is part of Home Assistant, schema and data are passed as JS objects (not string).
     return html`
       <ha-form
         .hass=${this.hass}
